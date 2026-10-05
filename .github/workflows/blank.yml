@@ -1,0 +1,137 @@
+ # ============================================================
+# PC GAMER REMOTO
+# Tailscale + Windows App + Remote Desktop
+# ============================================================
+# Verificar administrador
+$isAdmin = ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+if (-not $isAdmin) {
+    Write-Host "ERRO: execute este arquivo como ADMINISTRADOR." -ForegroundColor Red
+    pause
+    exit
+}
+Write-Host ""
+Write-Host "============================================"
+Write-Host "       PC GAMER REMOTO - CONFIGURADOR"
+Write-Host "============================================"
+Write-Host ""
+# ------------------------------------------------------------
+# 1. Verificar Windows
+# ------------------------------------------------------------
+$edition = (Get-ComputerInfo).WindowsProductName
+Write-Host "Windows detectado: $edition"
+if ($edition -match "Home") {
+    Write-Host ""
+    Write-Host "ATENCAO: Windows Home nao hospeda Remote Desktop." `
+        -ForegroundColor Yellow
+    Write-Host "Use Windows Pro/Enterprise."
+    pause
+    exit
+}
+# ------------------------------------------------------------
+# 2. Ativar Remote Desktop
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[1/6] Ativando Remote Desktop..."
+Set-ItemProperty `
+    -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+    -Name "fDenyTSConnections" `
+    -Value 0
+Set-ItemProperty `
+    -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+    -Name "UserAuthentication" `
+    -Value 1
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+Write-Host "Remote Desktop ativado."
+# ------------------------------------------------------------
+# 3. Configurar servico RDP
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[2/6] Configurando servico RDP..."
+Set-Service -Name TermService -StartupType Automatic
+Start-Service -Name TermService
+Write-Host "Servico RDP configurado."
+# ------------------------------------------------------------
+# 4. Instalar Tailscale
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[3/6] Verificando Tailscale..."
+$tailscale = Get-Command tailscale.exe -ErrorAction SilentlyContinue
+if (-not $tailscale) {
+    Write-Host "Tailscale nao encontrado."
+    Write-Host "Tentando instalar pelo Winget..."
+    winget install --id Tailscale.Tailscale `
+        --exact `
+        --accept-package-agreements `
+        --accept-source-agreements
+} else {
+    Write-Host "Tailscale ja esta instalado."
+}
+# ------------------------------------------------------------
+# 5. Verificar Tailscale
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[4/6] Verificando Tailscale..."
+$tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
+if (Test-Path $tailscalePath) {
+    Write-Host ""
+    Write-Host "Tailscale encontrado."
+    Write-Host ""
+    Write-Host "IMPORTANTE:"
+    Write-Host "Abra o Tailscale e faca login na sua conta."
+    Write-Host ""
+} else {
+    Write-Host ""
+    Write-Host "Tailscale ainda nao foi localizado."
+    Write-Host "Instale-o manualmente se necessario."
+}
+# ------------------------------------------------------------
+# 6. Informacoes do PC
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[5/6] Coletando informacoes..."
+$computerName = $env:COMPUTERNAME
+$ramGB = [math]::Round(
+    (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB,
+    1
+)
+$cpu = (Get-CimInstance Win32_Processor).Name
+Write-Host ""
+Write-Host "============================================"
+Write-Host "          INFORMACOES DO PC"
+Write-Host "============================================"
+Write-Host "Nome: $computerName"
+Write-Host "CPU: $cpu"
+Write-Host "RAM: $ramGB GB"
+Write-Host "============================================"
+# ------------------------------------------------------------
+# 7. Tailscale IP
+# ------------------------------------------------------------
+Write-Host ""
+Write-Host "[6/6] Procurando IP do Tailscale..."
+Start-Sleep -Seconds 3
+if (Test-Path $tailscalePath) {
+    $tsIP = & $tailscalePath ip -4 2>$null
+    if ($tsIP) {
+        Write-Host ""
+        Write-Host "============================================"
+        Write-Host "          CONFIGURACAO FINAL"
+        Write-Host "============================================"
+        Write-Host "PC: $computerName"
+        Write-Host "IP Tailscale: $tsIP"
+        Write-Host "RDP: ATIVADO"
+        Write-Host "============================================"
+        Write-Host ""
+        Write-Host "Use este IP no Windows App:"
+        Write-Host $tsIP -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "O Tailscale esta instalado, mas ainda"
+        Write-Host "precisa fazer login."
+    }
+} else {
+    Write-Host ""
+    Write-Host "Inenter file contents here
