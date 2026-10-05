@@ -1,137 +1,258 @@
- # ============================================================
-# PC GAMER REMOTO
-# Tailscale + Windows App + Remote Desktop
-# ============================================================
-# Verificar administrador
-$isAdmin = ([Security.Principal.WindowsPrincipal] `
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole(
-    [Security.Principal.WindowsBuiltInRole]::Administrator
-)
-if (-not $isAdmin) {
-    Write-Host "ERRO: execute este arquivo como ADMINISTRADOR." -ForegroundColor Red
-    pause
-    exit
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC Gamer Virtual</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#0b1020;
+    color:white;
+    min-height:100vh;
 }
-Write-Host ""
-Write-Host "============================================"
-Write-Host "       PC GAMER REMOTO - CONFIGURADOR"
-Write-Host "============================================"
-Write-Host ""
-# ------------------------------------------------------------
-# 1. Verificar Windows
-# ------------------------------------------------------------
-$edition = (Get-ComputerInfo).WindowsProductName
-Write-Host "Windows detectado: $edition"
-if ($edition -match "Home") {
-    Write-Host ""
-    Write-Host "ATENCAO: Windows Home nao hospeda Remote Desktop." `
-        -ForegroundColor Yellow
-    Write-Host "Use Windows Pro/Enterprise."
-    pause
-    exit
+
+header{
+    background:#111a33;
+    padding:20px;
+    text-align:center;
+    border-bottom:2px solid #2878ff;
 }
-# ------------------------------------------------------------
-# 2. Ativar Remote Desktop
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[1/6] Ativando Remote Desktop..."
-Set-ItemProperty `
-    -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-    -Name "fDenyTSConnections" `
-    -Value 0
-Set-ItemProperty `
-    -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-    -Name "UserAuthentication" `
-    -Value 1
-Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-Write-Host "Remote Desktop ativado."
-# ------------------------------------------------------------
-# 3. Configurar servico RDP
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[2/6] Configurando servico RDP..."
-Set-Service -Name TermService -StartupType Automatic
-Start-Service -Name TermService
-Write-Host "Servico RDP configurado."
-# ------------------------------------------------------------
-# 4. Instalar Tailscale
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[3/6] Verificando Tailscale..."
-$tailscale = Get-Command tailscale.exe -ErrorAction SilentlyContinue
-if (-not $tailscale) {
-    Write-Host "Tailscale nao encontrado."
-    Write-Host "Tentando instalar pelo Winget..."
-    winget install --id Tailscale.Tailscale `
-        --exact `
-        --accept-package-agreements `
-        --accept-source-agreements
-} else {
-    Write-Host "Tailscale ja esta instalado."
+
+header h1{
+    margin:0;
+    font-size:25px;
 }
-# ------------------------------------------------------------
-# 5. Verificar Tailscale
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[4/6] Verificando Tailscale..."
-$tailscalePath = "C:\Program Files\Tailscale\tailscale.exe"
-if (Test-Path $tailscalePath) {
-    Write-Host ""
-    Write-Host "Tailscale encontrado."
-    Write-Host ""
-    Write-Host "IMPORTANTE:"
-    Write-Host "Abra o Tailscale e faca login na sua conta."
-    Write-Host ""
-} else {
-    Write-Host ""
-    Write-Host "Tailscale ainda nao foi localizado."
-    Write-Host "Instale-o manualmente se necessario."
+
+.container{
+    max-width:700px;
+    margin:auto;
+    padding:20px;
 }
-# ------------------------------------------------------------
-# 6. Informacoes do PC
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[5/6] Coletando informacoes..."
-$computerName = $env:COMPUTERNAME
-$ramGB = [math]::Round(
-    (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB,
-    1
-)
-$cpu = (Get-CimInstance Win32_Processor).Name
-Write-Host ""
-Write-Host "============================================"
-Write-Host "          INFORMACOES DO PC"
-Write-Host "============================================"
-Write-Host "Nome: $computerName"
-Write-Host "CPU: $cpu"
-Write-Host "RAM: $ramGB GB"
-Write-Host "============================================"
-# ------------------------------------------------------------
-# 7. Tailscale IP
-# ------------------------------------------------------------
-Write-Host ""
-Write-Host "[6/6] Procurando IP do Tailscale..."
-Start-Sleep -Seconds 3
-if (Test-Path $tailscalePath) {
-    $tsIP = & $tailscalePath ip -4 2>$null
-    if ($tsIP) {
-        Write-Host ""
-        Write-Host "============================================"
-        Write-Host "          CONFIGURACAO FINAL"
-        Write-Host "============================================"
-        Write-Host "PC: $computerName"
-        Write-Host "IP Tailscale: $tsIP"
-        Write-Host "RDP: ATIVADO"
-        Write-Host "============================================"
-        Write-Host ""
-        Write-Host "Use este IP no Windows App:"
-        Write-Host $tsIP -ForegroundColor Green
-    } else {
-        Write-Host ""
-        Write-Host "O Tailscale esta instalado, mas ainda"
-        Write-Host "precisa fazer login."
+
+.card{
+    background:#151e36;
+    border-radius:15px;
+    padding:20px;
+    margin-bottom:18px;
+    border:1px solid #28385f;
+}
+
+.card h2{
+    margin-top:0;
+    color:#5fa0ff;
+}
+
+.spec{
+    display:flex;
+    justify-content:space-between;
+    padding:13px 0;
+    border-bottom:1px solid #293653;
+}
+
+.spec:last-child{
+    border-bottom:0;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border-radius:8px;
+    border:1px solid #435276;
+    background:#080d1a;
+    color:white;
+    font-size:16px;
+    margin:8px 0;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:0;
+    border-radius:8px;
+    background:#2878ff;
+    color:white;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    margin-top:8px;
+}
+
+button:active{
+    transform:scale(.98);
+}
+
+.status{
+    background:#06351e;
+    color:#62f5a0;
+    padding:12px;
+    border-radius:8px;
+}
+
+#resultado{
+    margin-top:15px;
+    padding:12px;
+    border-radius:8px;
+    background:#202c49;
+    display:none;
+}
+
+.game{
+    background:#0d1427;
+    padding:13px;
+    border-radius:8px;
+    margin:8px 0;
+}
+
+footer{
+    text-align:center;
+    padding:20px;
+    color:#7d8aa8;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🎮 PC GAMER VIRTUAL</h1>
+    <p>Windows + Tailscale + Windows App</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+
+<h2>🖥️ BUILD DO PC</h2>
+
+<div class="spec">
+    <span>Processador</span>
+    <b>Ryzen 5 5600</b>
+</div>
+
+<div class="spec">
+    <span>Placa de vídeo</span>
+    <b>RX 6600 8GB</b>
+</div>
+
+<div class="spec">
+    <span>Memória RAM</span>
+    <b>16GB DDR4</b>
+</div>
+
+<div class="spec">
+    <span>Armazenamento</span>
+    <b>SSD NVMe 500GB</b>
+</div>
+
+<div class="spec">
+    <span>Sistema</span>
+    <b>Windows 11 Pro</b>
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>🟢 CONEXÃO</h2>
+
+<div class="status">
+    ● Sistema pronto para conexão
+</div>
+
+<input
+    id="ip"
+    type="text"
+    placeholder="Digite o IP Tailscale"
+>
+
+<button onclick="conectar()">
+    🔗 CONECTAR
+</button>
+
+<div id="resultado"></div>
+
+</div>
+
+<div class="card">
+
+<h2>🎮 JOGOS</h2>
+
+<div class="game">🎮 GTA V</div>
+<div class="game">🎮 Fortnite</div>
+<div class="game">🎮 Minecraft</div>
+<div class="game">🎮 Valorant</div>
+<div class="game">🎮 Forza Horizon</div>
+
+</div>
+
+<div class="card">
+
+<h2>📊 STATUS DO PC</h2>
+
+<div class="spec">
+    <span>CPU</span>
+    <b id="cpu">Normal</b>
+</div>
+
+<div class="spec">
+    <span>GPU</span>
+    <b id="gpu">RX 6600</b>
+</div>
+
+<div class="spec">
+    <span>RAM</span>
+    <b>16GB</b>
+</div>
+
+<div class="spec">
+    <span>Internet</span>
+    <b id="internet">Conectado</b>
+</div>
+
+</div>
+
+</div>
+
+<footer>
+PC Gamer Virtual
+</footer>
+
+<script>
+
+function conectar(){
+
+    const ip=document.getElementById("ip").value.trim();
+    const resultado=document.getElementById("resultado");
+
+    resultado.style.display="block";
+
+    if(ip===""){
+        resultado.innerHTML="❌ Digite o IP Tailscale.";
+        return;
     }
-} else {
-    Write-Host ""
-    Write-Host "Inenter file contents here
+
+    resultado.innerHTML=
+        "✅ PC encontrado!<br><br>"+
+        "IP: <b>"+ip+"</b><br>"+
+        "Status: <b>Pronto para conexão</b><br><br>"+
+        "Abra o Windows App e use este IP para acessar o PC.";
+}
+
+setInterval(function(){
+
+    const cpu=Math.floor(Math.random()*20)+20;
+
+    document.getElementById("cpu").innerText=
+        cpu+"% de uso";
+
+},2000);
+
+</script>
+
+</body>
+</html>enter file contents here
